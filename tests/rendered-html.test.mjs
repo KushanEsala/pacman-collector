@@ -62,8 +62,8 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /exitFullscreen/);
   assert.match(collector, /lock\?\.\("landscape"\)/);
   assert.match(collector, /game-action-buttons/);
-  assert.match(collector, /Choose your game view/);
-  assert.match(collector, /Recommended for mobile/);
+  assert.match(collector, /Choose your view/);
+  assert.match(collector, /Landscape view/);
   assert.match(collector, /role="switch"/);
   assert.match(collector, /nextLevel === 1/);
   assert.doesNotMatch(collector, /max-width: 900px/);
