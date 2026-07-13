@@ -58,7 +58,13 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /togglePause/);
   assert.match(collector, /totalPausedMs/);
   assert.match(collector, /Resume game/);
+  assert.match(collector, /requestFullscreen/);
+  assert.match(collector, /exitFullscreen/);
+  assert.match(collector, /Rotate your phone sideways/);
+  assert.match(collector, /nextLevel === 3/);
   assert.match(styles, /\.pause-overlay/);
+  assert.match(styles, /\.game-workspace:fullscreen/);
+  assert.match(styles, /\.metrics-bar > div:nth-child\(n\+4\)/);
   assert.doesNotMatch(collector, /exportPendingRecords/);
   assert.doesNotMatch(collector, /Retry synchronization/);
   assert.doesNotMatch(supabase, /exportPendingRecords/);

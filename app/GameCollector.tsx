@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v7";
+const CLIENT_VERSION = "web-collector-v8";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -325,6 +325,7 @@ function drawGame(canvas: HTMLCanvasElement, game: GameState, now = performance.
 
 export function GameCollector() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const workspaceRef = useRef<HTMLElement>(null);
   const gameRef = useRef<GameState | null>(null);
   const participantRef = useRef("");
   const sessionRef = useRef("");
@@ -346,6 +347,9 @@ export function GameCollector() {
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [paused, setPaused] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showMobilePlayPrompt, setShowMobilePlayPrompt] = useState(false);
+  const [fullscreenError, setFullscreenError] = useState("");
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
   useEffect(() => {
@@ -373,6 +377,14 @@ export function GameCollector() {
       document.removeEventListener("visibilitychange", visibilityChanged);
     };
   }, [refreshQueue]);
+
+  useEffect(() => {
+    const fullscreenChanged = () => {
+      setIsFullscreen(document.fullscreenElement === workspaceRef.current);
+    };
+    document.addEventListener("fullscreenchange", fullscreenChanged);
+    return () => document.removeEventListener("fullscreenchange", fullscreenChanged);
+  }, []);
 
   const setDirection = useCallback((direction: Direction) => {
     const game = gameRef.current;
@@ -408,6 +420,36 @@ export function GameCollector() {
     pausedRef.current = false;
     setPaused(false);
   }, [screen]);
+
+  const closeMobilePlayPrompt = useCallback(() => {
+    setShowMobilePlayPrompt(false);
+    setFullscreenError("");
+    if (pausedRef.current) togglePause();
+  }, [togglePause]);
+
+  const enterFullscreen = useCallback(async () => {
+    const workspace = workspaceRef.current;
+    if (!workspace || !document.fullscreenEnabled) {
+      setFullscreenError("Full screen is unavailable in this browser. Rotate your phone and continue normally.");
+      return;
+    }
+    try {
+      await workspace.requestFullscreen({ navigationUI: "hide" });
+      setIsFullscreen(true);
+      if (showMobilePlayPrompt) closeMobilePlayPrompt();
+    } catch {
+      setFullscreenError("Full screen could not start. Rotate your phone and continue normally.");
+    }
+  }, [closeMobilePlayPrompt, showMobilePlayPrompt]);
+
+  const exitFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) return;
+    try {
+      await document.exitFullscreen();
+    } catch {
+      setFullscreenError("Use your browser's back or full-screen control to exit.");
+    }
+  }, []);
 
   const startSwipe = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     swipeStartRef.current = { row: event.clientY, col: event.clientX };
@@ -597,8 +639,14 @@ export function GameCollector() {
   const beginRound = useCallback((nextLevel: number) => {
     const nextDifficulty = difficultyFor(startDifficultyRef.current, nextLevel);
     gameRef.current = createGame(nextLevel, nextDifficulty);
-    pausedRef.current = false;
-    setPaused(false);
+    const shouldOfferMobileFullscreen = nextLevel === 3
+      && window.matchMedia("(max-width: 900px) and (orientation: portrait)").matches
+      && !document.fullscreenElement;
+    pausedRef.current = shouldOfferMobileFullscreen;
+    gameRef.current.pausedAt = shouldOfferMobileFullscreen ? performance.now() : null;
+    setPaused(shouldOfferMobileFullscreen);
+    setShowMobilePlayPrompt(shouldOfferMobileFullscreen);
+    setFullscreenError("");
     setLevel(nextLevel); setDifficulty(nextDifficulty);
     setHud({ score: 0, retries: 0, remaining: gameRef.current.initialCollectibles, ghostsEaten: 0 });
     setScreen("playing");
@@ -689,7 +737,7 @@ export function GameCollector() {
       )}
 
       {screen !== "profile" && screen !== "session_complete" && (
-        <section className="game-workspace">
+        <section ref={workspaceRef} className={`game-workspace${isFullscreen ? " is-fullscreen" : ""}`}>
           <div className="metrics-bar">
             <div><span>Round</span><strong>{level}/{MAX_LEVELS}</strong></div>
             <div><span>Difficulty</span><strong className={`difficulty ${difficulty.toLowerCase()}`}>{difficulty}</strong></div>
@@ -699,6 +747,12 @@ export function GameCollector() {
             <div><span>Ghosts eaten</span><strong>{hud.ghostsEaten}</strong></div>
           </div>
           <div className="canvas-stage">
+            <button
+              className="fullscreen-toggle"
+              onClick={() => void (isFullscreen ? exitFullscreen() : enterFullscreen())}
+              aria-label={isFullscreen ? "Exit full screen" : "Open game in full screen"}
+              title={isFullscreen ? "Exit full screen" : "Full screen"}
+            ><span aria-hidden="true">⛶</span><span>{isFullscreen ? "Exit" : "Full screen"}</span></button>
             <button
               className="pause-toggle"
               onClick={togglePause}
@@ -715,11 +769,21 @@ export function GameCollector() {
               onPointerCancel={() => { swipeStartRef.current = null; }}
               onContextMenu={(event) => event.preventDefault()}
             />
-            {paused && (
+            {paused && !showMobilePlayPrompt && (
               <div className="pause-overlay" role="status">
                 <p className="eyebrow">Game paused</p>
                 <h2>Ready when you are.</h2>
                 <button className="primary-button" onClick={togglePause}>▶ Resume</button>
+              </div>
+            )}
+            {showMobilePlayPrompt && (
+              <div className="play-mode-prompt" role="dialog" aria-modal="true" aria-labelledby="play-mode-title">
+                <p className="eyebrow">Larger maze ahead</p>
+                <h2 id="play-mode-title">Rotate your phone sideways</h2>
+                <p>Open full screen for a larger board and simpler game view.</p>
+                {fullscreenError && <p className="fullscreen-error" role="alert">{fullscreenError}</p>}
+                <button className="primary-button" onClick={() => void enterFullscreen()}>⛶ Open full screen</button>
+                <button className="text-button" onClick={closeMobilePlayPrompt}>Continue normally</button>
               </div>
             )}
             {screen === "feedback" && (
