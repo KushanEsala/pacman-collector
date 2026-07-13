@@ -62,11 +62,8 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /exitFullscreen/);
   assert.match(collector, /lock\?\.\("landscape"\)/);
   assert.match(collector, /game-action-buttons/);
-  assert.match(collector, /Choose your view/);
-  assert.match(collector, /Landscape view/);
-  assert.match(collector, /role="switch"/);
-  assert.match(collector, /nextLevel === 1/);
-  assert.doesNotMatch(collector, /max-width: 900px/);
+  assert.doesNotMatch(collector, /Choose your view/);
+  assert.doesNotMatch(collector, /role="switch"/);
   assert.match(styles, /\.pause-overlay/);
   assert.match(styles, /\.game-workspace:fullscreen/);
   assert.match(styles, /\.game-workspace:fullscreen \.controls-row \{ display: none; \}/);
@@ -75,11 +72,9 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(styles, /object-fit: contain/);
   assert.match(styles, /\.controls-row \{ position: static; min-height: 220px/);
   assert.match(styles, /repeat\(3, 62px\)/);
-  assert.match(collector, /touchControlsOpen/);
-  assert.match(collector, /Collapse direction buttons/);
+  assert.doesNotMatch(collector, /touchControlsOpen/);
   assert.match(styles, /@media \(hover: none\) and \(pointer: coarse\)/);
-  assert.match(styles, /\.game-workspace:fullscreen\.touch-controls-open \.controls-row/);
-  assert.match(styles, /\.play-mode-prompt \{ position: fixed/);
+  assert.match(styles, /\.game-workspace:fullscreen \.controls-row \{ position: absolute/);
   assert.match(styles, /\.gesture-hint/);
   assert.match(styles, /\.game-workspace:fullscreen \.overlay-panel/);
   assert.doesNotMatch(collector, /exportPendingRecords/);
