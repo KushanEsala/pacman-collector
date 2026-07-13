@@ -52,6 +52,10 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /submitSessionFeedback/);
   assert.match(collector, /Leave a note/);
   assert.match(collector, /maxLength=\{1000\}/);
+  assert.match(collector, /togglePause/);
+  assert.match(collector, /totalPausedMs/);
+  assert.match(collector, /Resume game/);
+  assert.match(styles, /\.pause-overlay/);
   assert.doesNotMatch(collector, /exportPendingRecords/);
   assert.doesNotMatch(collector, /Retry synchronization/);
   assert.doesNotMatch(supabase, /exportPendingRecords/);

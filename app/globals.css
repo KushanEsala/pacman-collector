@@ -62,6 +62,11 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px
 .difficulty.easy { color: var(--green); }.difficulty.medium { color: var(--yellow); }.difficulty.hard { color: var(--red); }
 .canvas-stage { position: relative; border: 1px solid var(--line); background: #070b18; overflow: hidden; }
 canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-height: calc(100vh - 250px); touch-action: none; user-select: none; -webkit-user-select: none; }
+.pause-toggle { position: absolute; top: 14px; right: 14px; z-index: 4; width: 44px; height: 44px; border: 1px solid #52698e; border-radius: 6px; background: rgba(8, 15, 29, .9); color: var(--ink); font-size: 18px; }
+.pause-toggle:hover { border-color: var(--yellow); color: var(--yellow); }
+.pause-overlay { position: absolute; inset: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: 14px; background: rgba(4, 8, 17, .82); text-align: center; }
+.pause-overlay h2 { margin: 0; font-size: clamp(28px, 5vw, 48px); }
+.pause-overlay .primary-button { margin-top: 8px; min-width: 160px; }
 .overlay-panel { position: absolute; inset: 0; margin: auto; width: min(620px, calc(100% - 34px)); height: max-content; padding: 34px; border: 1px solid #465a80; border-radius: 8px; background: rgba(8, 13, 25, .96); box-shadow: 0 24px 70px rgba(0,0,0,.55); text-align: center; }
 .overlay-panel h2 { font-size: clamp(26px, 4vw, 42px); }
 .overlay-panel > p:not(.eyebrow) { color: var(--muted); }
@@ -78,6 +83,7 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-hei
 .dpad .down { grid-column: 2; grid-row: 2; }
 .dpad .right { grid-column: 3; grid-row: 2; }
 .dpad button:active { background: #234578; border-color: #76aaff; transform: translateY(1px); }
+.dpad button:disabled { opacity: .35; cursor: not-allowed; transform: none; }
 
 .complete-screen { width: min(720px, calc(100% - 40px)); margin: auto; padding: 54px 0 70px; text-align: center; }
 .complete-screen p { margin-left: auto; margin-right: auto; }
@@ -114,6 +120,7 @@ footer { min-height: 46px; display: flex; align-items: center; justify-content: 
   .metrics-bar > div:nth-child(3) { border-right: 0; }
   .metrics-bar > div:nth-child(n+4) { border-bottom: 0; }
   canvas { max-height: none; }
+  .pause-toggle { top: 9px; right: 9px; width: 42px; height: 42px; }
   .controls-row { position: sticky; bottom: 0; z-index: 3; min-height: 116px; padding: 8px 12px; background: rgba(7, 12, 23, .97); }
   .desktop-control-hint { display: none; }
   .power-hint { max-width: 92px; line-height: 1.35; }

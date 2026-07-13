@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v5";
+const CLIENT_VERSION = "web-collector-v6";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -165,6 +165,8 @@ interface GameState {
   lastDirection: Direction | null;
   startedAt: number;
   firstActionAt: number | null;
+  pausedAt: number | null;
+  totalPausedMs: number;
   frozenUntil: number;
   readyUntil: number;
   playerSafeUntil: number;
@@ -235,7 +237,8 @@ function createGame(level: number, difficulty: Difficulty): GameState {
     level, difficulty, roundId: crypto.randomUUID(), maze, player, direction: null, queuedDirection: null, ghosts,
     dots, power, initialCollectibles: dots.size + power.size, score: 0, retries: 0, errors: 0, actions: 0,
     inputAttempts: 0, idleTicks: 0, movementTicks: 0, directionChanges: 0, lastDirection: null,
-    startedAt: now + 1200, firstActionAt: null, frozenUntil: 0, readyUntil: now + 1200, playerSafeUntil: now + 2200,
+    startedAt: now + 1200, firstActionAt: null, pausedAt: null, totalPausedMs: 0,
+    frozenUntil: 0, readyUntil: now + 1200, playerSafeUntil: now + 2200,
     ghostCombo: 0, ghostsEaten: 0, lastPlayerMove: 0, lastGhostMove: 0, lastHudUpdate: 0, ended: false,
   };
 }
@@ -328,6 +331,7 @@ export function GameCollector() {
   const startDifficultyRef = useRef(0);
   const pendingRecordRef = useRef<Omit<RoundRecord, "target_adjustment" | "player_feedback" | "label_source" | "label_confidence"> | null>(null);
   const swipeStartRef = useRef<Point | null>(null);
+  const pausedRef = useRef(false);
   const [screen, setScreen] = useState<Screen>("profile");
   const [participantCode, setParticipantCode] = useState("");
   const [consent, setConsent] = useState(false);
@@ -340,6 +344,7 @@ export function GameCollector() {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [sessionComment, setSessionComment] = useState("");
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [paused, setPaused] = useState(false);
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
   useEffect(() => {
@@ -369,11 +374,38 @@ export function GameCollector() {
 
   const setDirection = useCallback((direction: Direction) => {
     const game = gameRef.current;
-    if (!game || game.ended) return;
+    if (!game || game.ended || pausedRef.current) return;
     game.queuedDirection = direction;
     game.inputAttempts += 1;
-    if (game.firstActionAt === null) game.firstActionAt = Math.max(performance.now(), game.readyUntil);
+    if (game.firstActionAt === null) {
+      game.firstActionAt = Math.max(performance.now(), game.readyUntil) - game.totalPausedMs;
+    }
   }, []);
+
+  const togglePause = useCallback(() => {
+    const game = gameRef.current;
+    if (!game || game.ended || screen !== "playing") return;
+    const now = performance.now();
+    if (!pausedRef.current) {
+      pausedRef.current = true;
+      game.pausedAt = now;
+      setPaused(true);
+      return;
+    }
+    const pausedFor = Math.max(0, now - (game.pausedAt ?? now));
+    game.totalPausedMs += pausedFor;
+    if (game.frozenUntil > 0) game.frozenUntil += pausedFor;
+    if (game.readyUntil > game.pausedAt!) game.readyUntil += pausedFor;
+    if (game.playerSafeUntil > game.pausedAt!) game.playerSafeUntil += pausedFor;
+    game.ghosts.forEach((ghost) => {
+      if (ghost.respawningUntil > (game.pausedAt ?? now)) ghost.respawningUntil += pausedFor;
+    });
+    game.pausedAt = null;
+    game.lastPlayerMove = now;
+    game.lastGhostMove = now;
+    pausedRef.current = false;
+    setPaused(false);
+  }, [screen]);
 
   const startSwipe = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     swipeStartRef.current = { row: event.clientY, col: event.clientX };
@@ -422,7 +454,7 @@ export function GameCollector() {
     const game = gameRef.current;
     if (!game || game.ended) return;
     game.ended = true;
-    const elapsed = Math.max(0.01, (performance.now() - game.startedAt) / 1000);
+    const elapsed = Math.max(0.01, (performance.now() - game.startedAt - game.totalPausedMs) / 1000);
     const collected = game.initialCollectibles - game.dots.size - game.power.size;
     const progressRate = Math.max(0, Math.min(1, collected / game.initialCollectibles));
     const accuracy = game.score + game.errors * 10 > 0 ? game.score / (game.score + game.errors * 10) * 100 : 100;
@@ -434,7 +466,7 @@ export function GameCollector() {
       difficulty: game.difficulty,
       difficulty_factor: DIFFICULTY_FACTOR[game.difficulty],
       outcome,
-      reaction_time: Number((((game.firstActionAt ?? performance.now()) - game.startedAt) / 1000).toFixed(3)),
+      reaction_time: Number((((game.firstActionAt ?? performance.now() - game.totalPausedMs) - game.startedAt) / 1000).toFixed(3)),
       completion_time: Number(elapsed.toFixed(3)),
       score: game.score,
       retries: game.retries,
@@ -460,10 +492,15 @@ export function GameCollector() {
     let frameId = 0;
     const keydown = (event: KeyboardEvent) => {
       const map: Record<string, Direction> = { ArrowUp: "up", w: "up", ArrowDown: "down", s: "down", ArrowLeft: "left", a: "left", ArrowRight: "right", d: "right" };
+      if (event.key.toLowerCase() === "p") { event.preventDefault(); togglePause(); return; }
       const direction = map[event.key];
       if (direction) { event.preventDefault(); setDirection(direction); }
     };
     window.addEventListener("keydown", keydown, { passive: false });
+    if (paused) {
+      if (canvasRef.current && gameRef.current) drawGame(canvasRef.current, gameRef.current);
+      return () => window.removeEventListener("keydown", keydown);
+    }
 
     const moveGhost = (game: GameState, ghost: Ghost, now: number) => {
       if (now < ghost.respawningUntil) return;
@@ -553,11 +590,13 @@ export function GameCollector() {
     };
     frameId = requestAnimationFrame(animate);
     return () => { cancelAnimationFrame(frameId); window.removeEventListener("keydown", keydown); };
-  }, [finishRound, screen, setDirection]);
+  }, [finishRound, paused, screen, setDirection, togglePause]);
 
   const beginRound = useCallback((nextLevel: number) => {
     const nextDifficulty = difficultyFor(startDifficultyRef.current, nextLevel);
     gameRef.current = createGame(nextLevel, nextDifficulty);
+    pausedRef.current = false;
+    setPaused(false);
     setLevel(nextLevel); setDifficulty(nextDifficulty);
     setHud({ score: 0, retries: 0, remaining: gameRef.current.initialCollectibles, ghostsEaten: 0 });
     setScreen("playing");
@@ -655,6 +694,12 @@ export function GameCollector() {
             <div><span>Ghosts eaten</span><strong>{hud.ghostsEaten}</strong></div>
           </div>
           <div className="canvas-stage">
+            <button
+              className="pause-toggle"
+              onClick={togglePause}
+              aria-label={paused ? "Resume game" : "Pause game"}
+              title={paused ? "Resume game" : "Pause game"}
+            >{paused ? "▶" : "Ⅱ"}</button>
             <canvas
               ref={canvasRef}
               width={960}
@@ -665,6 +710,13 @@ export function GameCollector() {
               onPointerCancel={() => { swipeStartRef.current = null; }}
               onContextMenu={(event) => event.preventDefault()}
             />
+            {paused && (
+              <div className="pause-overlay" role="status">
+                <p className="eyebrow">Game paused</p>
+                <h2>Ready when you are.</h2>
+                <button className="primary-button" onClick={togglePause}>▶ Resume</button>
+              </div>
+            )}
             {screen === "feedback" && (
               <div className="overlay-panel feedback-panel">
                 <p className="eyebrow">Round feedback</p><h2>How did that round feel?</h2>
@@ -686,10 +738,10 @@ export function GameCollector() {
           <div className="controls-row">
             <span className="desktop-control-hint">Arrow keys or WASD</span>
             <div className="dpad" aria-label="Touch movement controls">
-              <button className="up" onPointerDown={() => setDirection("up")} aria-label="Move up">↑</button>
-              <button className="left" onPointerDown={() => setDirection("left")} aria-label="Move left">←</button>
-              <button className="down" onPointerDown={() => setDirection("down")} aria-label="Move down">↓</button>
-              <button className="right" onPointerDown={() => setDirection("right")} aria-label="Move right">→</button>
+              <button disabled={paused} className="up" onPointerDown={() => setDirection("up")} aria-label="Move up">↑</button>
+              <button disabled={paused} className="left" onPointerDown={() => setDirection("left")} aria-label="Move left">←</button>
+              <button disabled={paused} className="down" onPointerDown={() => setDirection("down")} aria-label="Move down">↓</button>
+              <button disabled={paused} className="right" onPointerDown={() => setDirection("right")} aria-label="Move right">→</button>
             </div>
             <span className="power-hint">Swipe board or use controls</span>
           </div>
