@@ -99,6 +99,7 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-hei
 .text-button { border: 0; background: transparent; color: var(--muted); text-decoration: underline; }
 .result-panel .primary-button { margin-top: 16px; }
 .controls-row { min-height: 62px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 8px 14px; border: 1px solid var(--line); border-top: 0; color: var(--muted); font-size: 12px; }
+.touch-controls-toggle { display: none; }
 .dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 46px); gap: 5px; }
 .dpad button { width: 46px; height: 46px; border: 1px solid #384a69; border-radius: 5px; background: #10182a; color: var(--ink); font-size: 22px; touch-action: manipulation; user-select: none; }
 .dpad .up { grid-column: 2; grid-row: 1; }
@@ -168,7 +169,7 @@ footer { min-height: 46px; display: flex; align-items: center; justify-content: 
   .controls-row { position: static; min-height: 220px; flex-direction: column; justify-content: center; gap: 14px; padding: 18px 12px 24px; background: #070c17; }
   .desktop-control-hint { display: none; }
   .power-hint { max-width: none; order: -1; line-height: 1.35; text-align: center; }
-  .dpad { grid-template-columns: repeat(3, 62px); grid-template-rows: repeat(2, 62px); gap: 7px; }
+  .dpad { grid-template-columns: repeat(3, 62px); grid-template-rows: repeat(2, 62px); gap: 11px; }
   .dpad button { width: 62px; height: 62px; font-size: 29px; }
   .feedback-actions { grid-template-columns: 1fr; }
   .overlay-panel { padding: 24px 18px; }
@@ -190,4 +191,14 @@ footer { min-height: 46px; display: flex; align-items: center; justify-content: 
 @media (orientation: portrait) {
   .game-workspace:fullscreen .metrics-bar { min-height: 76px; grid-template-columns: repeat(3, minmax(0, 1fr)); padding-right: 96px; }
   .game-workspace:fullscreen .metrics-bar > div { min-height: 38px; }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .game-workspace:fullscreen .controls-row { position: absolute; top: 50%; right: max(8px, env(safe-area-inset-right)); z-index: 8; width: 48px; min-height: 54px; display: flex; flex-direction: row; justify-content: flex-start; gap: 8px; padding: 6px; border: 1px solid #52698e; border-radius: 7px 0 0 7px; background: rgba(7, 12, 23, .94); transform: translateY(-50%); overflow: hidden; }
+  .game-workspace:fullscreen.touch-controls-open .controls-row { width: 214px; }
+  .game-workspace:fullscreen .touch-controls-toggle { width: 36px; height: 42px; flex: 0 0 36px; display: grid; place-items: center; border: 1px solid #52698e; border-radius: 5px; background: #14213a; color: var(--yellow); font-size: 18px; }
+  .game-workspace:fullscreen .controls-row .dpad { display: none; }
+  .game-workspace:fullscreen.touch-controls-open .controls-row .dpad { display: grid; grid-template-columns: repeat(3, 46px); grid-template-rows: repeat(2, 46px); gap: 9px; flex: 0 0 auto; }
+  .game-workspace:fullscreen .controls-row .dpad button { width: 46px; height: 46px; font-size: 22px; }
+  .game-workspace:fullscreen.touch-controls-open canvas { width: calc(100% - 250px); }
 }

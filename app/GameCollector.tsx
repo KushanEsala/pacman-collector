@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v14";
+const CLIENT_VERSION = "web-collector-v15";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -352,6 +352,7 @@ export function GameCollector() {
   const [preferFullscreen, setPreferFullscreen] = useState(true);
   const [fullscreenError, setFullscreenError] = useState("");
   const [showGestureHint, setShowGestureHint] = useState(false);
+  const [touchControlsOpen, setTouchControlsOpen] = useState(false);
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
   useEffect(() => {
@@ -386,6 +387,7 @@ export function GameCollector() {
       setIsFullscreen(active);
       if (!active) {
         setShowGestureHint(false);
+        setTouchControlsOpen(false);
         try {
           (window.screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
         } catch {
@@ -461,6 +463,7 @@ export function GameCollector() {
       }
       setIsFullscreen(true);
       setShowGestureHint(true);
+      setTouchControlsOpen(false);
       if (showMobilePlayPrompt) closeMobilePlayPrompt();
     } catch {
       setFullscreenError("Full screen could not start. Rotate your phone and continue normally.");
@@ -768,7 +771,7 @@ export function GameCollector() {
       )}
 
       {screen !== "profile" && screen !== "session_complete" && (
-        <section ref={workspaceRef} className={`game-workspace${isFullscreen ? " is-fullscreen" : ""}`}>
+        <section ref={workspaceRef} className={`game-workspace${isFullscreen ? " is-fullscreen" : ""}${touchControlsOpen ? " touch-controls-open" : ""}`}>
           <div className="metrics-bar">
             <div><span>Round</span><strong>{level}/{MAX_LEVELS}</strong></div>
             <div><span>Difficulty</span><strong className={`difficulty ${difficulty.toLowerCase()}`}>{difficulty}</strong></div>
@@ -861,6 +864,13 @@ export function GameCollector() {
           </div>
           <div className="controls-row">
             <span className="desktop-control-hint">Arrow keys or WASD</span>
+            <button
+              className="touch-controls-toggle"
+              onClick={() => setTouchControlsOpen((open) => !open)}
+              aria-expanded={touchControlsOpen}
+              aria-label={touchControlsOpen ? "Collapse direction buttons" : "Open direction buttons"}
+              title={touchControlsOpen ? "Collapse controls" : "Open controls"}
+            ><span aria-hidden="true">{touchControlsOpen ? "▶" : "◀"}</span></button>
             <div className="dpad" aria-label="Touch movement controls">
               <button disabled={paused} className="up" onPointerDown={() => setDirection("up")} aria-label="Move up">↑</button>
               <button disabled={paused} className="left" onPointerDown={() => setDirection("left")} aria-label="Move left">←</button>
