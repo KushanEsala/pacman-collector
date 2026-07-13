@@ -132,7 +132,7 @@ footer { min-height: 46px; display: flex; align-items: center; justify-content: 
 .game-workspace:fullscreen .metrics-bar > div { min-width: 0; min-height: 46px; padding: 5px 7px; border-bottom: 0; }
 .game-workspace:fullscreen .metrics-bar span { overflow: hidden; font-size: 8px; white-space: nowrap; text-overflow: ellipsis; }
 .game-workspace:fullscreen .metrics-bar strong { margin-top: 2px; font-size: 14px; }
-.game-workspace:fullscreen .canvas-stage { width: 100%; height: 100%; min-height: 0; display: grid; place-items: center; padding: 4px; border-width: 0 0 1px; overflow: hidden; }
+.game-workspace:fullscreen .canvas-stage { width: 100%; height: 100%; min-height: 0; display: grid; place-items: center; padding: 12px 18px max(24px, calc(env(safe-area-inset-bottom) + 12px)); border-width: 0; overflow: hidden; }
 .game-workspace:fullscreen canvas { width: auto; height: auto; max-width: 100%; max-height: 100%; aspect-ratio: 3 / 2; object-fit: contain; }
 .game-workspace:fullscreen .controls-row { display: none; }
 .game-workspace:fullscreen .game-action-buttons { top: calc(env(safe-area-inset-top) + 3px); right: calc(env(safe-area-inset-right) + 5px); }
@@ -184,6 +184,7 @@ footer { min-height: 46px; display: flex; align-items: center; justify-content: 
   .game-workspace:fullscreen .metrics-bar { min-height: 42px; }
   .game-workspace:fullscreen .metrics-bar > div { min-height: 42px; padding: 3px 6px; }
   .game-workspace:fullscreen .metrics-bar strong { font-size: 13px; }
+  .game-workspace:fullscreen .canvas-stage { padding: 8px 16px max(20px, calc(env(safe-area-inset-bottom) + 8px)); }
 }
 
 @media (orientation: portrait) {
