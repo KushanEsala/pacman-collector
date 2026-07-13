@@ -349,6 +349,7 @@ export function GameCollector() {
   const [paused, setPaused] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showMobilePlayPrompt, setShowMobilePlayPrompt] = useState(false);
+  const [preferFullscreen, setPreferFullscreen] = useState(true);
   const [fullscreenError, setFullscreenError] = useState("");
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
@@ -450,6 +451,14 @@ export function GameCollector() {
       setFullscreenError("Use your browser's back or full-screen control to exit.");
     }
   }, []);
+
+  const startPreferredMobileMode = useCallback(async () => {
+    if (preferFullscreen) {
+      await enterFullscreen();
+      return;
+    }
+    closeMobilePlayPrompt();
+  }, [closeMobilePlayPrompt, enterFullscreen, preferFullscreen]);
 
   const startSwipe = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     swipeStartRef.current = { row: event.clientY, col: event.clientX };
@@ -639,8 +648,8 @@ export function GameCollector() {
   const beginRound = useCallback((nextLevel: number) => {
     const nextDifficulty = difficultyFor(startDifficultyRef.current, nextLevel);
     gameRef.current = createGame(nextLevel, nextDifficulty);
-    const shouldOfferMobileFullscreen = nextLevel === 3
-      && window.matchMedia("(max-width: 900px) and (orientation: portrait)").matches
+    const shouldOfferMobileFullscreen = nextLevel === 1
+      && window.matchMedia("(max-width: 900px)").matches
       && !document.fullscreenElement;
     pausedRef.current = shouldOfferMobileFullscreen;
     gameRef.current.pausedAt = shouldOfferMobileFullscreen ? performance.now() : null;
@@ -778,12 +787,25 @@ export function GameCollector() {
             )}
             {showMobilePlayPrompt && (
               <div className="play-mode-prompt" role="dialog" aria-modal="true" aria-labelledby="play-mode-title">
-                <p className="eyebrow">Larger maze ahead</p>
-                <h2 id="play-mode-title">Rotate your phone sideways</h2>
-                <p>Open full screen for a larger board and simpler game view.</p>
+                <p className="eyebrow">Mobile play setup</p>
+                <h2 id="play-mode-title">Choose your game view</h2>
+                <p>Rotate your phone sideways for the clearest maze view. Full screen keeps only the board, compact score, and controls.</p>
+                <label className="fullscreen-preference">
+                  <span><strong>Full screen</strong><small>Recommended for mobile</small></span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={preferFullscreen}
+                    onChange={(event) => {
+                      setPreferFullscreen(event.target.checked);
+                      setFullscreenError("");
+                    }}
+                  />
+                </label>
                 {fullscreenError && <p className="fullscreen-error" role="alert">{fullscreenError}</p>}
-                <button className="primary-button" onClick={() => void enterFullscreen()}>⛶ Open full screen</button>
-                <button className="text-button" onClick={closeMobilePlayPrompt}>Continue normally</button>
+                <button className="primary-button" onClick={() => void startPreferredMobileMode()}>
+                  {preferFullscreen ? "⛶ Start in full screen" : "Start normally"}
+                </button>
               </div>
             )}
             {screen === "feedback" && (
