@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v10";
+const CLIENT_VERSION = "web-collector-v11";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -351,6 +351,7 @@ export function GameCollector() {
   const [showMobilePlayPrompt, setShowMobilePlayPrompt] = useState(false);
   const [preferFullscreen, setPreferFullscreen] = useState(true);
   const [fullscreenError, setFullscreenError] = useState("");
+  const [showGestureHint, setShowGestureHint] = useState(false);
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
   useEffect(() => {
@@ -384,6 +385,7 @@ export function GameCollector() {
       const active = document.fullscreenElement === workspaceRef.current;
       setIsFullscreen(active);
       if (!active) {
+        setShowGestureHint(false);
         try {
           (window.screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
         } catch {
@@ -394,6 +396,12 @@ export function GameCollector() {
     document.addEventListener("fullscreenchange", fullscreenChanged);
     return () => document.removeEventListener("fullscreenchange", fullscreenChanged);
   }, []);
+
+  useEffect(() => {
+    if (!showGestureHint) return;
+    const hintTimer = window.setTimeout(() => setShowGestureHint(false), 3600);
+    return () => window.clearTimeout(hintTimer);
+  }, [showGestureHint]);
 
   const setDirection = useCallback((direction: Direction) => {
     const game = gameRef.current;
@@ -452,6 +460,7 @@ export function GameCollector() {
         // Fullscreen still works when a browser does not allow orientation locking.
       }
       setIsFullscreen(true);
+      setShowGestureHint(true);
       if (showMobilePlayPrompt) closeMobilePlayPrompt();
     } catch {
       setFullscreenError("Full screen could not start. Rotate your phone and continue normally.");
@@ -768,21 +777,21 @@ export function GameCollector() {
             <div><span>Remaining</span><strong>{hud.remaining}</strong></div>
             <div><span>Ghosts eaten</span><strong>{hud.ghostsEaten}</strong></div>
           </div>
+          <div className="game-action-buttons">
+            <button
+              className="pause-toggle"
+              onClick={togglePause}
+              aria-label={paused ? "Resume game" : "Pause game"}
+              title={paused ? "Resume game" : "Pause game"}
+            >{paused ? "▶" : "Ⅱ"}</button>
+            <button
+              className="fullscreen-toggle"
+              onClick={() => void (isFullscreen ? exitFullscreen() : enterFullscreen())}
+              aria-label={isFullscreen ? "Exit full screen" : "Open game in landscape full screen"}
+              title={isFullscreen ? "Exit full screen" : "Landscape full screen"}
+            ><span aria-hidden="true">⛶</span><span>{isFullscreen ? "Exit" : "Full screen"}</span></button>
+          </div>
           <div className="canvas-stage">
-            <div className="game-action-buttons">
-              <button
-                className="pause-toggle"
-                onClick={togglePause}
-                aria-label={paused ? "Resume game" : "Pause game"}
-                title={paused ? "Resume game" : "Pause game"}
-              >{paused ? "▶" : "Ⅱ"}</button>
-              <button
-                className="fullscreen-toggle"
-                onClick={() => void (isFullscreen ? exitFullscreen() : enterFullscreen())}
-                aria-label={isFullscreen ? "Exit full screen" : "Open game in landscape full screen"}
-                title={isFullscreen ? "Exit full screen" : "Landscape full screen"}
-              ><span aria-hidden="true">⛶</span><span>{isFullscreen ? "Exit" : "Full screen"}</span></button>
-            </div>
             <canvas
               ref={canvasRef}
               width={960}
@@ -793,6 +802,12 @@ export function GameCollector() {
               onPointerCancel={() => { swipeStartRef.current = null; }}
               onContextMenu={(event) => event.preventDefault()}
             />
+            {isFullscreen && showGestureHint && (
+              <div className="gesture-hint" role="status">
+                <span aria-hidden="true">↔</span>
+                <div><strong>Swipe to move</strong><small>Swipe anywhere on the maze</small></div>
+              </div>
+            )}
             {paused && !showMobilePlayPrompt && (
               <div className="pause-overlay" role="status">
                 <p className="eyebrow">Game paused</p>
@@ -802,25 +817,28 @@ export function GameCollector() {
             )}
             {showMobilePlayPrompt && (
               <div className="play-mode-prompt" role="dialog" aria-modal="true" aria-labelledby="play-mode-title">
-                <p className="eyebrow">Play setup</p>
-                <h2 id="play-mode-title">Choose your game view</h2>
-                <p>Rotate your phone sideways for the clearest maze view. Full screen keeps only the board, compact score, and controls.</p>
-                <label className="fullscreen-preference">
-                  <span><strong>Full screen</strong><small>Recommended for mobile</small></span>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    checked={preferFullscreen}
-                    onChange={(event) => {
-                      setPreferFullscreen(event.target.checked);
-                      setFullscreenError("");
-                    }}
-                  />
-                </label>
-                {fullscreenError && <p className="fullscreen-error" role="alert">{fullscreenError}</p>}
-                <button className="primary-button" onClick={() => void startPreferredMobileMode()}>
-                  {preferFullscreen ? "⛶ Start in full screen" : "Start normally"}
-                </button>
+                <div className="play-mode-dialog">
+                  <span className="mode-pac" aria-hidden="true" />
+                  <p className="eyebrow">Before you play</p>
+                  <h2 id="play-mode-title">Choose your view</h2>
+                  <p>For the clearest maze, rotate your phone sideways and use full screen.</p>
+                  <label className="fullscreen-preference">
+                    <span><strong>Full screen</strong><small>Landscape view · swipe controls</small></span>
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      checked={preferFullscreen}
+                      onChange={(event) => {
+                        setPreferFullscreen(event.target.checked);
+                        setFullscreenError("");
+                      }}
+                    />
+                  </label>
+                  {fullscreenError && <p className="fullscreen-error" role="alert">{fullscreenError}</p>}
+                  <button className="primary-button" onClick={() => void startPreferredMobileMode()}>
+                    {preferFullscreen ? "⛶ Start in full screen" : "Start normally"}
+                  </button>
+                </div>
               </div>
             )}
             {screen === "feedback" && (

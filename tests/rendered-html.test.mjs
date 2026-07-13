@@ -69,7 +69,12 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.doesNotMatch(collector, /max-width: 900px/);
   assert.match(styles, /\.pause-overlay/);
   assert.match(styles, /\.game-workspace:fullscreen/);
-  assert.match(styles, /\.metrics-bar > div:nth-child\(n\+4\)/);
+  assert.match(styles, /\.game-workspace:fullscreen \.controls-row \{ display: none; \}/);
+  assert.match(styles, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
+  assert.match(styles, /object-fit: contain/);
+  assert.match(styles, /\.play-mode-prompt \{ position: fixed/);
+  assert.match(styles, /\.gesture-hint/);
+  assert.match(styles, /\.game-workspace:fullscreen \.overlay-panel/);
   assert.doesNotMatch(collector, /exportPendingRecords/);
   assert.doesNotMatch(collector, /Retry synchronization/);
   assert.doesNotMatch(supabase, /exportPendingRecords/);
