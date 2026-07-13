@@ -349,7 +349,7 @@ export function GameCollector() {
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
   useEffect(() => {
-    refreshQueue();
+    const initialRefreshId = window.setTimeout(refreshQueue, 0);
     window.addEventListener("pacman-queue-change", refreshQueue);
     const syncInBackground = () => void flushQueue().then(({ sent, remaining }) => {
       refreshQueue();
@@ -366,6 +366,7 @@ export function GameCollector() {
     document.addEventListener("visibilitychange", visibilityChanged);
     if (cloudConfigured) syncInBackground();
     return () => {
+      window.clearTimeout(initialRefreshId);
       window.clearInterval(intervalId);
       window.removeEventListener("pacman-queue-change", refreshQueue);
       window.removeEventListener("online", syncInBackground);

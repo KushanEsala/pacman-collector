@@ -52,14 +52,18 @@ async function insert(table: string, payload: SessionRecord | RoundRecord | Sess
     const conflict = await response.json().catch(() => ({})) as { code?: string };
     if (conflict.code === "23505") return;
   }
-  if (!response.ok) throw new Error(`Collection request failed (${response.status})`);
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "No response body");
+    throw new Error(`${table} request failed (${response.status}): ${detail.slice(0, 500)}`);
+  }
 }
 
 export async function submitSession(payload: SessionRecord) {
   const record: QueuedRecord = { kind: "session", payload };
   try {
     await insert("web_game_sessions", payload);
-  } catch {
+  } catch (error) {
+    console.error("[Pac-Man collection] Session queued after upload failure:", error);
     enqueue(record);
   }
 }
@@ -68,7 +72,8 @@ export async function submitRound(payload: RoundRecord) {
   const record: QueuedRecord = { kind: "round", payload };
   try {
     await insert("web_round_logs", payload);
-  } catch {
+  } catch (error) {
+    console.error("[Pac-Man collection] Round queued after upload failure:", error);
     enqueue(record);
   }
 }
@@ -77,7 +82,8 @@ export async function submitSessionFeedback(payload: SessionFeedbackRecord) {
   const record: QueuedRecord = { kind: "feedback", payload };
   try {
     await insert("web_session_feedback", payload);
-  } catch {
+  } catch (error) {
+    console.error("[Pac-Man collection] Feedback queued after upload failure:", error);
     enqueue(record);
   }
 }
@@ -94,7 +100,8 @@ export async function flushQueue() {
         : record.kind === "round" ? "web_round_logs" : "web_session_feedback";
       await insert(table, record.payload);
       sent += 1;
-    } catch {
+    } catch (error) {
+      console.warn(`[Pac-Man collection] ${record.kind} remains queued:`, error);
       remaining.push(record);
     }
   }
