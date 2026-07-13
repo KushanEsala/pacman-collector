@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v13";
+const CLIENT_VERSION = "web-collector-v14";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
