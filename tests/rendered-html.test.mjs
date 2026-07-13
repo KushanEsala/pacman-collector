@@ -64,6 +64,7 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /Recommended for mobile/);
   assert.match(collector, /role="switch"/);
   assert.match(collector, /nextLevel === 1/);
+  assert.doesNotMatch(collector, /max-width: 900px/);
   assert.match(styles, /\.pause-overlay/);
   assert.match(styles, /\.game-workspace:fullscreen/);
   assert.match(styles, /\.metrics-bar > div:nth-child\(n\+4\)/);

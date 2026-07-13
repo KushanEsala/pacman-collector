@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v8";
+const CLIENT_VERSION = "web-collector-v9";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -648,9 +648,7 @@ export function GameCollector() {
   const beginRound = useCallback((nextLevel: number) => {
     const nextDifficulty = difficultyFor(startDifficultyRef.current, nextLevel);
     gameRef.current = createGame(nextLevel, nextDifficulty);
-    const shouldOfferMobileFullscreen = nextLevel === 1
-      && window.matchMedia("(max-width: 900px)").matches
-      && !document.fullscreenElement;
+    const shouldOfferMobileFullscreen = nextLevel === 1 && !document.fullscreenElement;
     pausedRef.current = shouldOfferMobileFullscreen;
     gameRef.current.pausedAt = shouldOfferMobileFullscreen ? performance.now() : null;
     setPaused(shouldOfferMobileFullscreen);
@@ -787,7 +785,7 @@ export function GameCollector() {
             )}
             {showMobilePlayPrompt && (
               <div className="play-mode-prompt" role="dialog" aria-modal="true" aria-labelledby="play-mode-title">
-                <p className="eyebrow">Mobile play setup</p>
+                <p className="eyebrow">Play setup</p>
                 <h2 id="play-mode-title">Choose your game view</h2>
                 <p>Rotate your phone sideways for the clearest maze view. Full screen keeps only the board, compact score, and controls.</p>
                 <label className="fullscreen-preference">
