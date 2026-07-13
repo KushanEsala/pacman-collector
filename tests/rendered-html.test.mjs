@@ -71,7 +71,9 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(styles, /\.game-workspace:fullscreen/);
   assert.match(styles, /\.game-workspace:fullscreen \.controls-row \{ display: none; \}/);
   assert.match(styles, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\)/);
-  assert.match(styles, /object-fit: contain/);
+  assert.match(styles, /max-width: 100%; max-height: 100%; aspect-ratio: 3 \/ 2; object-fit: contain/);
+  assert.match(styles, /\.controls-row \{ position: static; min-height: 220px/);
+  assert.match(styles, /repeat\(3, 62px\)/);
   assert.match(styles, /\.play-mode-prompt \{ position: fixed/);
   assert.match(styles, /\.gesture-hint/);
   assert.match(styles, /\.game-workspace:fullscreen \.overlay-panel/);
