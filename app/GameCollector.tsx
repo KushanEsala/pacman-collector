@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v6";
+const CLIENT_VERSION = "web-collector-v7";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -344,6 +344,7 @@ export function GameCollector() {
   const [completedSessions, setCompletedSessions] = useState(0);
   const [sessionComment, setSessionComment] = useState("");
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const [paused, setPaused] = useState(false);
 
   const refreshQueue = useCallback(() => setPendingCount(queueCount()), []);
@@ -630,23 +631,26 @@ export function GameCollector() {
     else beginRound(level + 1);
   };
 
-  const playAgain = async () => {
-    if (feedbackSubmitting) return;
-    setFeedbackSubmitting(true);
+  const sendWrittenFeedback = async () => {
     const message = sessionComment.trim();
-    if (message) {
-      await submitSessionFeedback({
-        id: crypto.randomUUID(),
-        session_id: sessionRef.current,
-        participant_id: participantRef.current,
-        message,
-        client_version: CLIENT_VERSION,
-        source_dataset: "web_pacman",
-      });
-      refreshQueue();
-    }
-    setSessionComment("");
+    if (!message || feedbackSubmitting || feedbackSent) return;
+    setFeedbackSubmitting(true);
+    await submitSessionFeedback({
+      id: crypto.randomUUID(),
+      session_id: sessionRef.current,
+      participant_id: participantRef.current,
+      message,
+      client_version: CLIENT_VERSION,
+      source_dataset: "web_pacman",
+    });
+    refreshQueue();
     setFeedbackSubmitting(false);
+    setFeedbackSent(true);
+  };
+
+  const playAgain = async () => {
+    setSessionComment("");
+    setFeedbackSent(false);
     await startSession();
   };
 
@@ -763,14 +767,24 @@ export function GameCollector() {
               rows={4}
               maxLength={1000}
               value={sessionComment}
-              onChange={(event) => setSessionComment(event.target.value)}
+              disabled={feedbackSent}
+              onChange={(event) => {
+                setSessionComment(event.target.value);
+                setFeedbackSent(false);
+              }}
               placeholder="Anything about the maze, controls, difficulty, or overall feel?"
             />
+            <div className="session-note-actions">
+              <span aria-live="polite">{feedbackSent ? "Feedback sent" : ""}</span>
+              <button
+                className="secondary-button"
+                disabled={!sessionComment.trim() || feedbackSubmitting || feedbackSent}
+                onClick={() => void sendWrittenFeedback()}
+              >{feedbackSubmitting ? "Sending..." : "Send"}</button>
+            </div>
           </div>
           <div className="complete-actions">
-            <button className="primary-button" disabled={feedbackSubmitting} onClick={() => void playAgain()}>
-              {feedbackSubmitting ? "Saving..." : "Play again"}
-            </button>
+            <button className="primary-button" onClick={() => void playAgain()}>Play again</button>
           </div>
         </section>
       )}

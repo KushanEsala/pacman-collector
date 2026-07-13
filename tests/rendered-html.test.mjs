@@ -48,8 +48,11 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /visibilitychange/);
   assert.match(collector, /thankz cuddh\.\.much love/);
   assert.match(collector, /means a lot\.\.\.<3/);
-  assert.match(collector, /"Play again"/);
+  assert.match(collector, /Play again/);
   assert.match(collector, /submitSessionFeedback/);
+  assert.match(collector, /sendWrittenFeedback/);
+  assert.match(collector, /Send/);
+  assert.match(collector, /Feedback sent/);
   assert.match(collector, /Leave a note/);
   assert.match(collector, /maxLength=\{1000\}/);
   assert.match(collector, /togglePause/);

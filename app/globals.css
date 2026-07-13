@@ -95,6 +95,11 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-hei
 .session-note textarea { display: block; width: 100%; resize: vertical; min-height: 112px; max-height: 240px; border: 1px solid #3a4b6a; border-radius: 6px; background: #0b1120; color: var(--ink); padding: 14px 15px; line-height: 1.5; outline: none; }
 .session-note textarea:focus { border-color: #4cc9f0; box-shadow: 0 0 0 3px rgba(76, 201, 240, .12); }
 .session-note textarea::placeholder { color: #71819d; }
+.session-note textarea:disabled { opacity: .72; cursor: not-allowed; }
+.session-note-actions { min-height: 48px; display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 10px; }
+.session-note-actions span { margin-right: auto; color: var(--green); font-size: 13px; font-weight: 700; }
+.session-note-actions .secondary-button { min-width: 112px; }
+.session-note-actions .secondary-button:disabled { opacity: .42; cursor: not-allowed; }
 .complete-actions { display: flex; justify-content: center; gap: 12px; margin-top: 18px; }
 .complete-actions .primary-button { min-width: 180px; }
 footer { min-height: 46px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 0 clamp(20px, 4vw, 64px); border-top: 1px solid #1d2b44; color: #697b99; font: 500 10px var(--font-geist-mono), monospace; }
