@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v9";
+const CLIENT_VERSION = "web-collector-v10";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -381,7 +381,15 @@ export function GameCollector() {
 
   useEffect(() => {
     const fullscreenChanged = () => {
-      setIsFullscreen(document.fullscreenElement === workspaceRef.current);
+      const active = document.fullscreenElement === workspaceRef.current;
+      setIsFullscreen(active);
+      if (!active) {
+        try {
+          (window.screen.orientation as ScreenOrientation & { unlock?: () => void }).unlock?.();
+        } catch {
+          // Orientation unlocking is optional and browser-dependent.
+        }
+      }
     };
     document.addEventListener("fullscreenchange", fullscreenChanged);
     return () => document.removeEventListener("fullscreenchange", fullscreenChanged);
@@ -436,6 +444,13 @@ export function GameCollector() {
     }
     try {
       await workspace.requestFullscreen({ navigationUI: "hide" });
+      try {
+        await (window.screen.orientation as ScreenOrientation & {
+          lock?: (orientation: "landscape") => Promise<void>;
+        }).lock?.("landscape");
+      } catch {
+        // Fullscreen still works when a browser does not allow orientation locking.
+      }
       setIsFullscreen(true);
       if (showMobilePlayPrompt) closeMobilePlayPrompt();
     } catch {
@@ -754,18 +769,20 @@ export function GameCollector() {
             <div><span>Ghosts eaten</span><strong>{hud.ghostsEaten}</strong></div>
           </div>
           <div className="canvas-stage">
-            <button
-              className="fullscreen-toggle"
-              onClick={() => void (isFullscreen ? exitFullscreen() : enterFullscreen())}
-              aria-label={isFullscreen ? "Exit full screen" : "Open game in full screen"}
-              title={isFullscreen ? "Exit full screen" : "Full screen"}
-            ><span aria-hidden="true">⛶</span><span>{isFullscreen ? "Exit" : "Full screen"}</span></button>
-            <button
-              className="pause-toggle"
-              onClick={togglePause}
-              aria-label={paused ? "Resume game" : "Pause game"}
-              title={paused ? "Resume game" : "Pause game"}
-            >{paused ? "▶" : "Ⅱ"}</button>
+            <div className="game-action-buttons">
+              <button
+                className="pause-toggle"
+                onClick={togglePause}
+                aria-label={paused ? "Resume game" : "Pause game"}
+                title={paused ? "Resume game" : "Pause game"}
+              >{paused ? "▶" : "Ⅱ"}</button>
+              <button
+                className="fullscreen-toggle"
+                onClick={() => void (isFullscreen ? exitFullscreen() : enterFullscreen())}
+                aria-label={isFullscreen ? "Exit full screen" : "Open game in landscape full screen"}
+                title={isFullscreen ? "Exit full screen" : "Landscape full screen"}
+              ><span aria-hidden="true">⛶</span><span>{isFullscreen ? "Exit" : "Full screen"}</span></button>
+            </div>
             <canvas
               ref={canvasRef}
               width={960}
