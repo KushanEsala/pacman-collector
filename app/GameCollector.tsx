@@ -11,13 +11,25 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v16";
+const CLIENT_VERSION = "web-collector-v17";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
 const DIFFICULTIES: Difficulty[] = ["Easy", "Medium", "Hard"];
 const DIFFICULTY_FACTOR: Record<Difficulty, number> = { Easy: 0, Medium: 1, Hard: 2 };
 const EXPECTED_SECONDS: Record<Difficulty, number> = { Easy: 50, Medium: 60, Hard: 72 };
+const DIFFICULTY_SETTINGS: Record<Difficulty, {
+  ghostCount: number;
+  ghostDelay: number;
+  chaseChance: number;
+  crowdedChaseScale: number;
+  powerCount: number;
+  freezeDuration: number;
+}> = {
+  Easy: { ghostCount: 2, ghostDelay: 440, chaseChance: 0.26, crowdedChaseScale: 0.4, powerCount: 4, freezeDuration: 6500 },
+  Medium: { ghostCount: 3, ghostDelay: 305, chaseChance: 0.58, crowdedChaseScale: 0.5, powerCount: 3, freezeDuration: 5000 },
+  Hard: { ghostCount: 4, ghostDelay: 195, chaseChance: 0.84, crowdedChaseScale: 0.62, powerCount: 2, freezeDuration: 3800 },
+};
 
 function buildFairMaze(rows: number, cols: number, level: number) {
   const grid = Array.from({ length: rows }, () => Array.from({ length: cols }, () => "#"));
@@ -210,6 +222,32 @@ function openCells(maze: string[]) {
   return cells;
 }
 
+function manhattan(first: Point, second: Point) {
+  return Math.abs(first.row - second.row) + Math.abs(first.col - second.col);
+}
+
+function spreadPowerCells(cells: Point[], player: Point, ghosts: Ghost[], count: number) {
+  let candidates = cells.filter((cell) =>
+    manhattan(cell, player) >= 4 && ghosts.every((ghost) => manhattan(cell, ghost) >= 3),
+  );
+  const selected: Point[] = [];
+  while (selected.length < count && candidates.length > 0) {
+    candidates.sort((first, second) => {
+      const firstSpacing = selected.length === 0
+        ? manhattan(first, player)
+        : Math.min(...selected.map((point) => manhattan(first, point)));
+      const secondSpacing = selected.length === 0
+        ? manhattan(second, player)
+        : Math.min(...selected.map((point) => manhattan(second, point)));
+      return secondSpacing - firstSpacing;
+    });
+    const next = candidates.shift()!;
+    selected.push(next);
+    candidates = candidates.filter((cell) => manhattan(cell, next) >= 4);
+  }
+  return selected;
+}
+
 function createGame(level: number, difficulty: Difficulty): GameState {
   const maze = MAZES[level - 1];
   const cells = openCells(maze);
@@ -221,16 +259,14 @@ function createGame(level: number, difficulty: Difficulty): GameState {
       (Math.abs(a.row - center.row) + Math.abs(a.col - center.col)) -
       (Math.abs(b.row - center.row) + Math.abs(b.col - center.col)),
     );
-  const ghostCount = difficulty === "Easy" ? 2 : difficulty === "Medium" ? 3 : 4;
+  const settings = DIFFICULTY_SETTINGS[difficulty];
   const colors = ["#ef476f", "#4cc9f0", "#ff9f1c", "#f15bb5"];
-  const ghosts = Array.from({ length: ghostCount }, (_, index) => {
+  const ghosts = Array.from({ length: settings.ghostCount }, (_, index) => {
     const spawn = station[index] ?? cells[cells.length - 2];
     return { ...spawn, spawn: { ...spawn }, color: colors[index], respawningUntil: 0, eaten: 0 };
   });
   const blocked = new Set([pointKey(player), ...ghosts.map(pointKey)]);
-  const corners = cells.filter((cell) => (cell.row === 1 || cell.row === maze.length - 2) && (cell.col < 3 || cell.col > maze[0].length - 4));
-  const powerCount = difficulty === "Easy" ? 4 : difficulty === "Medium" ? 3 : 2;
-  const power = new Set(corners.slice(0, powerCount).map(pointKey));
+  const power = new Set(spreadPowerCells(cells, player, ghosts, settings.powerCount).map(pointKey));
   const dots = new Set(cells.filter((cell) => !blocked.has(pointKey(cell)) && !power.has(pointKey(cell))).map(pointKey));
   const now = performance.now();
   return {
@@ -471,13 +507,24 @@ export function GameCollector() {
     event.currentTarget.setPointerCapture(event.pointerId);
   }, []);
 
+  const moveSwipe = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
+    const start = swipeStartRef.current;
+    if (!start) return;
+    const deltaX = event.clientX - start.col;
+    const deltaY = event.clientY - start.row;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 12) return;
+    swipeStartRef.current = null;
+    if (Math.abs(deltaX) > Math.abs(deltaY)) setDirection(deltaX > 0 ? "right" : "left");
+    else setDirection(deltaY > 0 ? "down" : "up");
+  }, [setDirection]);
+
   const finishSwipe = useCallback((event: ReactPointerEvent<HTMLCanvasElement>) => {
     const start = swipeStartRef.current;
     swipeStartRef.current = null;
     if (!start) return;
     const deltaX = event.clientX - start.col;
     const deltaY = event.clientY - start.row;
-    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 18) return;
+    if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 12) return;
     if (Math.abs(deltaX) > Math.abs(deltaY)) setDirection(deltaX > 0 ? "right" : "left");
     else setDirection(deltaY > 0 ? "down" : "up");
   }, [setDirection]);
@@ -573,8 +620,10 @@ export function GameCollector() {
       const nearbyGhosts = game.ghosts.filter((other) =>
         now >= other.respawningUntil && Math.abs(other.row - game.player.row) + Math.abs(other.col - game.player.col) <= 4,
       ).length;
-      const baseChase = game.difficulty === "Easy" ? 0.32 : game.difficulty === "Medium" ? 0.55 : 0.74;
-      const chase = nearbyGhosts >= 2 ? baseChase * 0.48 : baseChase;
+      const settings = DIFFICULTY_SETTINGS[game.difficulty];
+      const chase = nearbyGhosts >= 2
+        ? settings.chaseChance * settings.crowdedChaseScale
+        : settings.chaseChance;
       const choice = Math.random() < chase
         ? available.sort((a, b) => (Math.abs(a.row - game.player.row) + Math.abs(a.col - game.player.col)) - (Math.abs(b.row - game.player.row) + Math.abs(b.col - game.player.col)))[0]
         : available[Math.floor(Math.random() * available.length)];
@@ -612,27 +661,31 @@ export function GameCollector() {
     const animate = (timestamp: number) => {
       const game = gameRef.current;
       if (!game || game.ended) return;
-      const playerDelay = game.difficulty === "Hard" ? 112 : 102;
-      const ghostDelay = game.difficulty === "Easy" ? 420 : game.difficulty === "Medium" ? 300 : 220;
+      const settings = DIFFICULTY_SETTINGS[game.difficulty];
+      const playerDelay = 100;
+      const ghostDelay = settings.ghostDelay;
       if (timestamp >= game.frozenUntil) game.ghostCombo = 0;
       if (timestamp >= game.readyUntil && timestamp - game.lastPlayerMove >= playerDelay) {
         game.lastPlayerMove = timestamp; game.movementTicks += 1;
-        const desired = game.queuedDirection ?? game.direction;
+        const directionCandidates = [game.queuedDirection, game.direction]
+          .filter((direction, index, all): direction is Direction => direction !== null && all.indexOf(direction) === index);
+        const desired = directionCandidates.find((direction) => {
+          const vector = vectors[direction];
+          return isOpen(game.maze, { row: game.player.row + vector.row, col: game.player.col + vector.col });
+        });
         if (desired) {
           const vector = vectors[desired];
           const next = { row: game.player.row + vector.row, col: game.player.col + vector.col };
-          if (isOpen(game.maze, next)) {
-            if (game.lastDirection && game.lastDirection !== desired) game.directionChanges += 1;
-            game.lastDirection = desired; game.direction = desired; game.player = next; game.actions += 1;
-            const key = pointKey(next);
-            if (game.dots.delete(key)) game.score += 10;
-            if (game.power.delete(key)) {
-              const freezeDuration = game.difficulty === "Easy" ? 6000 : game.difficulty === "Medium" ? 5200 : 4500;
-              game.score += 50;
-              game.frozenUntil = timestamp + freezeDuration;
-              game.ghostCombo = 0;
-            }
-          } else game.idleTicks += 1;
+          if (desired === game.queuedDirection) game.queuedDirection = null;
+          if (game.lastDirection && game.lastDirection !== desired) game.directionChanges += 1;
+          game.lastDirection = desired; game.direction = desired; game.player = next; game.actions += 1;
+          const key = pointKey(next);
+          if (game.dots.delete(key)) game.score += 10;
+          if (game.power.delete(key)) {
+            game.score += 50;
+            game.frozenUntil = timestamp + settings.freezeDuration;
+            game.ghostCombo = 0;
+          }
         } else game.idleTicks += 1;
       }
       if (timestamp >= game.readyUntil && timestamp - game.lastGhostMove >= ghostDelay && timestamp >= game.frozenUntil) {
@@ -777,6 +830,7 @@ export function GameCollector() {
               height={640}
               aria-label="Pac-Man game board. Swipe to change direction."
               onPointerDown={startSwipe}
+              onPointerMove={moveSwipe}
               onPointerUp={finishSwipe}
               onPointerCancel={() => { swipeStartRef.current = null; }}
               onContextMenu={(event) => event.preventDefault()}

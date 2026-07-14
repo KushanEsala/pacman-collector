@@ -43,7 +43,13 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /buildFairMaze\(17, 29, 5\)/);
   assert.match(collector, /validateFairMaze/);
   assert.match(collector, /deadEnds > 0/);
-  assert.match(collector, /nearbyGhosts >= 2 \? baseChase \* 0\.48/);
+  assert.match(collector, /DIFFICULTY_SETTINGS/);
+  assert.match(collector, /Easy: \{ ghostCount: 2, ghostDelay: 440, chaseChance: 0\.26/);
+  assert.match(collector, /Medium: \{ ghostCount: 3, ghostDelay: 305, chaseChance: 0\.58/);
+  assert.match(collector, /Hard: \{ ghostCount: 4, ghostDelay: 195, chaseChance: 0\.84/);
+  assert.match(collector, /spreadPowerCells/);
+  assert.doesNotMatch(collector, /corners\.slice/);
+  assert.match(collector, /directionCandidates/);
   assert.match(collector, /window\.setInterval/);
   assert.match(collector, /visibilitychange/);
   assert.match(collector, /thankz cuddh\.\.much love/);
@@ -82,6 +88,7 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.doesNotMatch(supabase, /exportPendingRecords/);
   assert.match(supabase, /web_session_feedback/);
   assert.match(collector, /onPointerDown=\{startSwipe\}/);
+  assert.match(collector, /onPointerMove=\{moveSwipe\}/);
   assert.match(collector, /onPointerUp=\{finishSwipe\}/);
   assert.match(styles, /touch-action:\s*none/);
   assert.match(styles, /\.dpad \.up/);
