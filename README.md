@@ -5,6 +5,19 @@ performance data and trusted difficulty feedback. The collector works on desktop
 and mobile, stores failed submissions in a browser queue, and submits records to
 Supabase when cloud configuration is available.
 
+Current production build: `web-collector-v17` at
+`https://pac-man.kushanesala.me`.
+
+## Current Gameplay Rules
+
+- Pac-Man accepts buffered turns before a junction and continues forward until the requested route opens.
+- Mobile swipes register during the gesture, while keyboard, D-pad, pause, and fullscreen controls remain available.
+- Easy uses 2 slower, less-persistent ghosts, 4 freeze pellets, and a 6.5-second freeze.
+- Medium uses 3 faster, more-persistent ghosts, 3 freeze pellets, and a 5-second freeze.
+- Hard uses 4 significantly faster, strongly pursuing ghosts, 2 freeze pellets, and a 3.8-second freeze.
+- Multi-ghost pressure relief remains active to reduce unfair sandwich situations.
+- Freeze pellets are placed across distant playable maze regions instead of fixed in one area.
+
 ## Local Setup
 
 Requirements: Node.js `>=22.13.0`.
