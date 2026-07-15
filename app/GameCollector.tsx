@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v19";
+const CLIENT_VERSION = "web-collector-v20";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -209,10 +209,9 @@ function createAnimatedPoint(point: Point, now: number): AnimatedPoint {
 function animatedPosition(point: AnimatedPoint, now: number): Point {
   if (point.moveDuration <= 0) return { row: point.row, col: point.col };
   const progress = Math.min(1, Math.max(0, (now - point.moveStartedAt) / point.moveDuration));
-  const eased = progress * progress * (3 - 2 * progress);
   return {
-    row: point.renderFromRow + (point.row - point.renderFromRow) * eased,
-    col: point.renderFromCol + (point.col - point.renderFromCol) * eased,
+    row: point.renderFromRow + (point.row - point.renderFromRow) * progress,
+    col: point.renderFromCol + (point.col - point.renderFromCol) * progress,
   };
 }
 
@@ -682,7 +681,7 @@ export function GameCollector() {
       const choice = Math.random() < chase
         ? available.sort((a, b) => (Math.abs(a.row - game.player.row) + Math.abs(a.col - game.player.col)) - (Math.abs(b.row - game.player.row) + Math.abs(b.col - game.player.col)))[0]
         : available[Math.floor(Math.random() * available.length)];
-      if (choice) moveAnimatedPoint(ghost, choice, now, settings.ghostDelay * 0.84);
+      if (choice) moveAnimatedPoint(ghost, choice, now, settings.ghostDelay);
     };
     const collision = (game: GameState, now: number) => {
       for (const ghost of game.ghosts) {
@@ -733,7 +732,7 @@ export function GameCollector() {
           if (desired === game.queuedDirection) game.queuedDirection = null;
           if (game.lastDirection && game.lastDirection !== desired) game.directionChanges += 1;
           game.lastDirection = desired; game.direction = desired;
-          moveAnimatedPoint(game.player, next, timestamp, playerDelay * 0.84);
+          moveAnimatedPoint(game.player, next, timestamp, playerDelay);
           game.actions += 1;
           const key = pointKey(next);
           if (game.dots.delete(key)) game.score += 10;

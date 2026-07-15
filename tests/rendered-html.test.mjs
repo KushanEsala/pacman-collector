@@ -57,9 +57,9 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /type AnimatedPoint/);
   assert.match(collector, /animatedPosition/);
   assert.match(collector, /moveAnimatedPoint/);
-  assert.match(collector, /playerDelay \* 0\.84/);
-  assert.match(collector, /settings\.ghostDelay \* 0\.84/);
-  assert.match(collector, /web-collector-v19/);
+  assert.match(collector, /moveAnimatedPoint\(game\.player, next, timestamp, playerDelay\)/);
+  assert.match(collector, /moveAnimatedPoint\(ghost, choice, now, settings\.ghostDelay\)/);
+  assert.match(collector, /web-collector-v20/);
   assert.match(collector, /window\.setInterval/);
   assert.match(collector, /visibilitychange/);
   assert.match(collector, /thankz cuddh\.\.much love/);
