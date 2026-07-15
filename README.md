@@ -5,16 +5,16 @@ performance data and trusted difficulty feedback. The collector works on desktop
 and mobile, stores failed submissions in a browser queue, and submits records to
 Supabase when cloud configuration is available.
 
-Current production build: `web-collector-v17` at
+Current production build: `web-collector-v18` at
 `https://pac-man.kushanesala.me`.
 
 ## Current Gameplay Rules
 
 - Pac-Man accepts buffered turns before a junction and continues forward until the requested route opens.
 - Mobile swipes register during the gesture, while keyboard, D-pad, pause, and fullscreen controls remain available.
-- Easy uses 2 slower, less-persistent ghosts, 4 freeze pellets, and a 6.5-second freeze.
-- Medium uses 3 faster, more-persistent ghosts, 3 freeze pellets, and a 5-second freeze.
-- Hard uses 4 significantly faster, strongly pursuing ghosts, 2 freeze pellets, and a 3.8-second freeze.
+- Easy uses 2 slower, less-persistent ghosts, 4 freeze pellets, and a 7-second freeze.
+- Medium uses 3 moderately paced ghosts, 3 freeze pellets, and a 5.5-second freeze.
+- Hard uses 4 faster pursuing ghosts, 2 freeze pellets, and a 4.3-second freeze.
 - Multi-ghost pressure relief remains active to reduce unfair sandwich situations.
 - Freeze pellets are placed across distant playable maze regions instead of fixed in one area.
 
@@ -36,10 +36,11 @@ pending records automatically while the page is open.
 ## Participant Flow
 
 1. Enter a participant code and accept the anonymous-data notice.
-2. Complete five progressively larger rounds using arrow keys, WASD, or touch.
-3. Provide `Too difficult`, `Balanced`, or `Too easy` feedback when prompted.
-4. Optionally leave a short written note after the session.
-5. Play another session if requested by the researcher.
+2. Review the single how-to-play screen, then start the game.
+3. Complete five progressively larger rounds using arrow keys, WASD, or touch.
+4. Provide `Too difficult`, `Balanced`, or `Too easy` feedback when prompted.
+5. Optionally leave a short written note after the session.
+6. Play another session if requested by the researcher.
 
 Difficulty starting conditions rotate deterministically across participants so
 Easy, Medium, and Hard receive comparable coverage. Feedback is requested after

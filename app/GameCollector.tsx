@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v17";
+const CLIENT_VERSION = "web-collector-v18";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -26,9 +26,9 @@ const DIFFICULTY_SETTINGS: Record<Difficulty, {
   powerCount: number;
   freezeDuration: number;
 }> = {
-  Easy: { ghostCount: 2, ghostDelay: 440, chaseChance: 0.26, crowdedChaseScale: 0.4, powerCount: 4, freezeDuration: 6500 },
-  Medium: { ghostCount: 3, ghostDelay: 305, chaseChance: 0.58, crowdedChaseScale: 0.5, powerCount: 3, freezeDuration: 5000 },
-  Hard: { ghostCount: 4, ghostDelay: 195, chaseChance: 0.84, crowdedChaseScale: 0.62, powerCount: 2, freezeDuration: 3800 },
+  Easy: { ghostCount: 2, ghostDelay: 480, chaseChance: 0.20, crowdedChaseScale: 0.35, powerCount: 4, freezeDuration: 7000 },
+  Medium: { ghostCount: 3, ghostDelay: 340, chaseChance: 0.48, crowdedChaseScale: 0.45, powerCount: 3, freezeDuration: 5500 },
+  Hard: { ghostCount: 4, ghostDelay: 230, chaseChance: 0.72, crowdedChaseScale: 0.55, powerCount: 2, freezeDuration: 4300 },
 };
 
 function buildFairMaze(rows: number, cols: number, level: number) {
@@ -145,7 +145,7 @@ function validateFairMaze(maze: string[], level: number) {
 }
 
 type Direction = "up" | "down" | "left" | "right";
-type Screen = "profile" | "playing" | "feedback" | "round_result" | "session_complete";
+type Screen = "profile" | "instructions" | "playing" | "feedback" | "round_result" | "session_complete";
 type Point = { row: number; col: number };
 type Ghost = Point & {
   color: string;
@@ -735,6 +735,11 @@ export function GameCollector() {
     beginRound(1);
   };
 
+  const showInstructions = () => {
+    if (participantCode.trim().length < 2 || !consent) return;
+    setScreen("instructions");
+  };
+
   const advance = () => {
     if (level >= MAX_LEVELS) {
       setCompletedSessions((count) => count + 1);
@@ -790,16 +795,35 @@ export function GameCollector() {
             <p>Your anonymous movement, timing, errors, score, and difficulty feedback help train the final adaptive model.</p>
             <ul><li>No account or email required</li><li>About 5-8 minutes per session</li><li>Play 2-4 sessions for 10-20 total rounds</li></ul>
           </div>
-          <form className="profile-form" onSubmit={(event) => { event.preventDefault(); void startSession(); }}>
+          <form className="profile-form" onSubmit={(event) => { event.preventDefault(); showInstructions(); }}>
             <label htmlFor="participant">Participant code</label>
             <input id="participant" value={participantCode} onChange={(event) => setParticipantCode(event.target.value)} maxLength={24} placeholder="Example: FRIEND07" autoComplete="off" />
             <label className="consent-row"><input type="checkbox" checked={consent} onChange={(event) => setConsent(event.target.checked)} /><span>I agree to share anonymous gameplay metrics for this university project.</span></label>
-            <button className="primary-button" disabled={participantCode.trim().length < 2 || !consent}>Start session</button>
+            <button className="primary-button" disabled={participantCode.trim().length < 2 || !consent}>Continue</button>
           </form>
         </section>
       )}
 
-      {screen !== "profile" && screen !== "session_complete" && (
+      {screen === "instructions" && (
+        <section className="instructions-screen" aria-labelledby="instructions-title">
+          <div className="instructions-panel">
+            <p className="eyebrow">Before round one</p>
+            <h2 id="instructions-title">How to play</h2>
+            <div className="instruction-list">
+              <div><span className="instruction-key">ARROWS</span><p><strong>Move Pac-Man</strong>Use Arrow keys or WASD. On mobile, swipe on the maze or use the direction buttons.</p></div>
+              <div><span className="instruction-dot" aria-hidden="true" /><p><strong>Clear the maze</strong>Collect every white dot to finish each round.</p></div>
+              <div><span className="instruction-power" aria-hidden="true" /><p><strong>Use freeze pellets</strong>Pink pellets freeze ghosts. Touch a frozen ghost to send it back to its station.</p></div>
+              <div><span className="instruction-ghost" aria-hidden="true" /><p><strong>Avoid active ghosts</strong>You have five retries per round. Pause or use full screen whenever needed.</p></div>
+            </div>
+            <div className="instructions-actions">
+              <button className="secondary-button" onClick={() => setScreen("profile")}>Back</button>
+              <button className="primary-button" onClick={() => void startSession()}>Start game</button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {screen !== "profile" && screen !== "instructions" && screen !== "session_complete" && (
         <section ref={workspaceRef} className={`game-workspace${isFullscreen ? " is-fullscreen" : ""}`}>
           <div className="metrics-bar">
             <div><span>Round</span><strong>{level}/{MAX_LEVELS}</strong></div>

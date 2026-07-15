@@ -22,7 +22,7 @@ test("server-renders the player study", async () => {
   const html = await response.text();
   assert.match(html, /<title>Pac-Man DDA Player Study<\/title>/i);
   assert.match(html, /Player study/i);
-  assert.match(html, /Start session/i);
+  assert.match(html, /Continue/i);
   assert.match(html, /anonymous gameplay metrics/i);
 });
 
@@ -44,9 +44,13 @@ test("collector keeps feedback labels, mobile controls, and cloud keys explicit"
   assert.match(collector, /validateFairMaze/);
   assert.match(collector, /deadEnds > 0/);
   assert.match(collector, /DIFFICULTY_SETTINGS/);
-  assert.match(collector, /Easy: \{ ghostCount: 2, ghostDelay: 440, chaseChance: 0\.26/);
-  assert.match(collector, /Medium: \{ ghostCount: 3, ghostDelay: 305, chaseChance: 0\.58/);
-  assert.match(collector, /Hard: \{ ghostCount: 4, ghostDelay: 195, chaseChance: 0\.84/);
+  assert.match(collector, /Easy: \{ ghostCount: 2, ghostDelay: 480, chaseChance: 0\.20/);
+  assert.match(collector, /Medium: \{ ghostCount: 3, ghostDelay: 340, chaseChance: 0\.48/);
+  assert.match(collector, /Hard: \{ ghostCount: 4, ghostDelay: 230, chaseChance: 0\.72/);
+  assert.match(collector, /How to play/);
+  assert.match(collector, /Start game/);
+  assert.match(collector, /screen !== "instructions"/);
+  assert.match(styles, /\.instructions-screen/);
   assert.match(collector, /spreadPowerCells/);
   assert.doesNotMatch(collector, /corners\.slice/);
   assert.match(collector, /directionCandidates/);
