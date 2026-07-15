@@ -11,7 +11,7 @@ import {
 } from "../lib/supabase";
 import type { Difficulty, Feedback, RoundRecord } from "../lib/types";
 
-const CLIENT_VERSION = "web-collector-v18";
+const CLIENT_VERSION = "web-collector-v19";
 const CONSENT_VERSION = "2026-07-13";
 const MAX_LEVELS = 5;
 const MAX_RETRIES = 5;
@@ -147,7 +147,13 @@ function validateFairMaze(maze: string[], level: number) {
 type Direction = "up" | "down" | "left" | "right";
 type Screen = "profile" | "instructions" | "playing" | "feedback" | "round_result" | "session_complete";
 type Point = { row: number; col: number };
-type Ghost = Point & {
+type AnimatedPoint = Point & {
+  renderFromRow: number;
+  renderFromCol: number;
+  moveStartedAt: number;
+  moveDuration: number;
+};
+type Ghost = AnimatedPoint & {
   color: string;
   spawn: Point;
   respawningUntil: number;
@@ -159,7 +165,7 @@ interface GameState {
   difficulty: Difficulty;
   roundId: string;
   maze: string[];
-  player: Point;
+  player: AnimatedPoint;
   direction: Direction | null;
   queuedDirection: Direction | null;
   ghosts: Ghost[];
@@ -188,6 +194,45 @@ interface GameState {
   lastGhostMove: number;
   lastHudUpdate: number;
   ended: boolean;
+}
+
+function createAnimatedPoint(point: Point, now: number): AnimatedPoint {
+  return {
+    ...point,
+    renderFromRow: point.row,
+    renderFromCol: point.col,
+    moveStartedAt: now,
+    moveDuration: 0,
+  };
+}
+
+function animatedPosition(point: AnimatedPoint, now: number): Point {
+  if (point.moveDuration <= 0) return { row: point.row, col: point.col };
+  const progress = Math.min(1, Math.max(0, (now - point.moveStartedAt) / point.moveDuration));
+  const eased = progress * progress * (3 - 2 * progress);
+  return {
+    row: point.renderFromRow + (point.row - point.renderFromRow) * eased,
+    col: point.renderFromCol + (point.col - point.renderFromCol) * eased,
+  };
+}
+
+function moveAnimatedPoint(point: AnimatedPoint, destination: Point, now: number, duration: number) {
+  const current = animatedPosition(point, now);
+  point.renderFromRow = current.row;
+  point.renderFromCol = current.col;
+  point.row = destination.row;
+  point.col = destination.col;
+  point.moveStartedAt = now;
+  point.moveDuration = duration;
+}
+
+function placeAnimatedPoint(point: AnimatedPoint, destination: Point, now: number) {
+  point.row = destination.row;
+  point.col = destination.col;
+  point.renderFromRow = destination.row;
+  point.renderFromCol = destination.col;
+  point.moveStartedAt = now;
+  point.moveDuration = 0;
 }
 
 const pointKey = (point: Point) => `${point.row},${point.col}`;
@@ -251,7 +296,8 @@ function spreadPowerCells(cells: Point[], player: Point, ghosts: Ghost[], count:
 function createGame(level: number, difficulty: Difficulty): GameState {
   const maze = MAZES[level - 1];
   const cells = openCells(maze);
-  const player = { row: 1, col: 1 };
+  const now = performance.now();
+  const player = createAnimatedPoint({ row: 1, col: 1 }, now);
   const center = { row: Math.floor(maze.length / 2), col: Math.floor(maze[0].length / 2) };
   const station = [...cells]
     .filter((cell) => Math.abs(cell.row - 1) + Math.abs(cell.col - 1) > 8)
@@ -263,12 +309,17 @@ function createGame(level: number, difficulty: Difficulty): GameState {
   const colors = ["#ef476f", "#4cc9f0", "#ff9f1c", "#f15bb5"];
   const ghosts = Array.from({ length: settings.ghostCount }, (_, index) => {
     const spawn = station[index] ?? cells[cells.length - 2];
-    return { ...spawn, spawn: { ...spawn }, color: colors[index], respawningUntil: 0, eaten: 0 };
+    return {
+      ...createAnimatedPoint(spawn, now),
+      spawn: { ...spawn },
+      color: colors[index],
+      respawningUntil: 0,
+      eaten: 0,
+    };
   });
   const blocked = new Set([pointKey(player), ...ghosts.map(pointKey)]);
   const power = new Set(spreadPowerCells(cells, player, ghosts, settings.powerCount).map(pointKey));
   const dots = new Set(cells.filter((cell) => !blocked.has(pointKey(cell)) && !power.has(pointKey(cell))).map(pointKey));
-  const now = performance.now();
   return {
     level, difficulty, roundId: crypto.randomUUID(), maze, player, direction: null, queuedDirection: null, ghosts,
     dots, power, initialCollectibles: dots.size + power.size, score: 0, retries: 0, errors: 0, actions: 0,
@@ -315,8 +366,9 @@ function drawGame(canvas: HTMLCanvasElement, game: GameState, now = performance.
     context.arc(offsetX + (col + 0.5) * cell, offsetY + (row + 0.5) * cell, Math.max(4, cell * 0.18), 0, Math.PI * 2);
     context.fill();
   }
-  const px = offsetX + (game.player.col + 0.5) * cell;
-  const py = offsetY + (game.player.row + 0.5) * cell;
+  const renderedPlayer = animatedPosition(game.player, now);
+  const px = offsetX + (renderedPlayer.col + 0.5) * cell;
+  const py = offsetY + (renderedPlayer.row + 0.5) * cell;
   const playerVisible = now >= game.playerSafeUntil || Math.floor(now / 100) % 2 === 0;
   context.fillStyle = playerVisible ? "#f9df4b" : "rgba(249, 223, 75, .24)";
   context.beginPath();
@@ -324,8 +376,9 @@ function drawGame(canvas: HTMLCanvasElement, game: GameState, now = performance.
   context.lineTo(px, py);
   context.fill();
   game.ghosts.forEach((ghost) => {
-    const x = offsetX + (ghost.col + 0.5) * cell;
-    const y = offsetY + (ghost.row + 0.5) * cell;
+    const renderedGhost = animatedPosition(ghost, now);
+    const x = offsetX + (renderedGhost.col + 0.5) * cell;
+    const y = offsetY + (renderedGhost.row + 0.5) * cell;
     const respawning = now < ghost.respawningUntil;
     context.fillStyle = respawning ? "rgba(125, 165, 232, .18)" : now < game.frozenUntil ? "#4776e6" : ghost.color;
     context.beginPath();
@@ -463,7 +516,9 @@ export function GameCollector() {
     if (game.playerSafeUntil > game.pausedAt!) game.playerSafeUntil += pausedFor;
     game.ghosts.forEach((ghost) => {
       if (ghost.respawningUntil > (game.pausedAt ?? now)) ghost.respawningUntil += pausedFor;
+      ghost.moveStartedAt += pausedFor;
     });
+    game.player.moveStartedAt += pausedFor;
     game.pausedAt = null;
     game.lastPlayerMove = now;
     game.lastGhostMove = now;
@@ -627,7 +682,7 @@ export function GameCollector() {
       const choice = Math.random() < chase
         ? available.sort((a, b) => (Math.abs(a.row - game.player.row) + Math.abs(a.col - game.player.col)) - (Math.abs(b.row - game.player.row) + Math.abs(b.col - game.player.col)))[0]
         : available[Math.floor(Math.random() * available.length)];
-      if (choice) { ghost.row = choice.row; ghost.col = choice.col; }
+      if (choice) moveAnimatedPoint(ghost, choice, now, settings.ghostDelay * 0.84);
     };
     const collision = (game: GameState, now: number) => {
       for (const ghost of game.ghosts) {
@@ -639,18 +694,17 @@ export function GameCollector() {
           game.ghostCombo += 1;
           game.ghostsEaten += 1;
           ghost.eaten += 1;
-          ghost.row = ghost.spawn.row; ghost.col = ghost.spawn.col;
+          placeAnimatedPoint(ghost, ghost.spawn, now);
           ghost.respawningUntil = Math.max(now + 1800, game.frozenUntil + 600);
         } else if (now >= game.playerSafeUntil) {
           game.retries += 1; game.errors += 1;
-          game.player = { row: 1, col: 1 };
+          placeAnimatedPoint(game.player, { row: 1, col: 1 }, now);
           game.direction = null; game.queuedDirection = null;
           game.ghostCombo = 0;
           game.readyUntil = now + 1100;
           game.playerSafeUntil = now + 2200;
           game.ghosts.forEach((item) => {
-            item.row = item.spawn.row;
-            item.col = item.spawn.col;
+            placeAnimatedPoint(item, item.spawn, now);
             item.respawningUntil = 0;
           });
           if (game.retries >= MAX_RETRIES) finishRound("failed");
@@ -678,7 +732,9 @@ export function GameCollector() {
           const next = { row: game.player.row + vector.row, col: game.player.col + vector.col };
           if (desired === game.queuedDirection) game.queuedDirection = null;
           if (game.lastDirection && game.lastDirection !== desired) game.directionChanges += 1;
-          game.lastDirection = desired; game.direction = desired; game.player = next; game.actions += 1;
+          game.lastDirection = desired; game.direction = desired;
+          moveAnimatedPoint(game.player, next, timestamp, playerDelay * 0.84);
+          game.actions += 1;
           const key = pointKey(next);
           if (game.dots.delete(key)) game.score += 10;
           if (game.power.delete(key)) {
